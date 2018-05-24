@@ -40,8 +40,11 @@ import org.lineageos.updater.model.UpdateBaseInfo;
 import org.lineageos.updater.model.Update;
 import org.lineageos.updater.model.UpdateInfo;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -342,6 +345,22 @@ public class Utils {
         boolean isAB = isABUpdate(zipFile);
         zipFile.close();
         return isAB;
+    }
+
+    // Basically we check for an Android Sparse Image format
+    public static boolean isTrebleUpdate(File file) throws IOException {
+        byte[] bytes = new byte[4];
+        try {
+            BufferedInputStream buf = new BufferedInputStream(new FileInputStream(file));
+            buf.read(bytes, 0, bytes.length);
+            buf.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        return bytes[0] == Constants.TREBLE_SYSTEM_IMAGE_MAGIC[0] &&
+                bytes[1] == Constants.TREBLE_SYSTEM_IMAGE_MAGIC[1] &&
+                bytes[2] == Constants.TREBLE_SYSTEM_IMAGE_MAGIC[2] &&
+                bytes[3] == Constants.TREBLE_SYSTEM_IMAGE_MAGIC[3];
     }
 
     public static boolean hasTouchscreen(Context context) {

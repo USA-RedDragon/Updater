@@ -59,6 +59,7 @@ android {
 }
 
 dependencies {
+    implementation 'com.android.support.constraint:constraint-layout:1.1.0'
     compileOnly fileTree(dir: 'system_libs/', include: ['*.jar'])
 
     def supportLibVersion = "27.1.0"

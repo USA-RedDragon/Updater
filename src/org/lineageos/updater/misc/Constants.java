@@ -23,6 +23,8 @@ public final class Constants {
     public static final String AB_PAYLOAD_BIN_PATH = "payload.bin";
     public static final String AB_PAYLOAD_PROPERTIES_PATH = "payload_properties.txt";
 
+    public static final byte[] TREBLE_SYSTEM_IMAGE_MAGIC = { (byte) 0x3A, (byte) 0xFF, (byte) 0x26, (byte) 0xED };
+
     public static final String PREF_LAST_UPDATE_CHECK = "last_update_check";
     public static final String PREF_AUTO_UPDATES_CHECK = "auto_updates_check";
     public static final String PREF_AUTO_DELETE_UPDATES = "auto_delete_updates";
@@ -32,11 +34,11 @@ public final class Constants {
     public static final String UNCRYPT_FILE_EXT = ".uncrypt";
 
     public static final String PROP_BUILD_DATE = "ro.build.date.utc";
-    public static final String PROP_BUILD_VERSION = "ro.aosip.build.version";
-    public static final String PROP_DEVICE = "ro.aosip.device";
+    public static final String PROP_BUILD_VERSION = "ro.invictrix.build.version";
+    public static final String PROP_DEVICE = "ro.invictrix.device";
     public static final String PROP_NEXT_DEVICE = "ro.updater.next_device";
-    public static final String PROP_RELEASE_TYPE = "ro.aosip.buildtype";
-    public static final String PROP_UPDATER_URI = "aosip.updater.uri";
+    public static final String PROP_RELEASE_TYPE = "ro.invictrix.buildtype";
+    public static final String PROP_UPDATER_URI = "ro.invictrix.updater.uri";
 
     public static final String PREF_INSTALL_OLD_TIMESTAMP = "install_old_timestamp";
     public static final String PREF_INSTALL_NEW_TIMESTAMP = "install_new_timestamp";

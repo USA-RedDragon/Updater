@@ -77,6 +77,8 @@ public class UpdatesActivity extends UpdatesListActivity {
     private View mRefreshIconView;
     private RotateAnimation mRefreshAnimation;
 
+    private int headerClicks = 0;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -118,6 +120,16 @@ public class UpdatesActivity extends UpdatesListActivity {
         TextView headerTitle = (TextView) findViewById(R.id.header_title);
         headerTitle.setText(getString(R.string.header_title_text,
                 BuildInfoUtils.getBuildVersion()));
+        headerTitle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                headerClicks++;
+                if(headerClicks >= 5) {
+                    headerClicks = 0;
+                    startActivity(new Intent(UpdatesActivity.this, SecretActivity.class));
+                }
+            }
+        });
 
         updateLastCheckedString();
 
@@ -130,8 +142,8 @@ public class UpdatesActivity extends UpdatesListActivity {
                 getString(R.string.list_device_name, BuildInfoUtils.getDevice()));
 
         TextView headerBuildDate = (TextView) findViewById(R.id.header_build_date);
-        headerBuildDate.setText(StringGenerator.getDateLocalizedUTC(this,
-                DateFormat.LONG, BuildInfoUtils.getBuildDateTimestamp()));
+        headerBuildDate.setText(getString(R.string.list_device_build_date, StringGenerator.getDateLocalizedUTC(this,
+                DateFormat.LONG, BuildInfoUtils.getBuildDateTimestamp())));
 
         // Switch between header title and appbar title minimizing overlaps
         final CollapsingToolbarLayout collapsingToolbar =

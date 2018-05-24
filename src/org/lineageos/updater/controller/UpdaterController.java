@@ -525,17 +525,24 @@ public class UpdaterController implements Controller {
     @Override
     public boolean isInstallingUpdate() {
         return UpdateInstaller.isInstalling() ||
-                ABUpdateInstaller.isInstallingUpdate(mContext);
+                ABUpdateInstaller.isInstallingUpdate(mContext) ||
+                TrebleUpdateInstaller.isInstallingUpdate(mContext);
     }
 
     @Override
     public boolean isInstallingUpdate(String downloadId) {
         return UpdateInstaller.isInstalling(downloadId) ||
-                ABUpdateInstaller.isInstallingUpdate(mContext, downloadId);
+                ABUpdateInstaller.isInstallingUpdate(mContext, downloadId) ||
+                TrebleUpdateInstaller.isInstallingUpdate(mContext, downloadId);
     }
 
     @Override
     public boolean isInstallingABUpdate() {
         return ABUpdateInstaller.isInstallingUpdate(mContext);
+    }
+
+    @Override
+    public boolean isInstallingTrebleUpdate() {
+        return TrebleUpdateInstaller.isInstallingUpdate(mContext);
     }
 }

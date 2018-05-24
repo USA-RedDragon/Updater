@@ -17,68 +17,56 @@ package org.lineageos.updater.controller;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.os.UpdateEngine;
-import android.os.UpdateEngineCallback;
 import android.support.v7.preference.PreferenceManager;
 import android.util.Log;
 
 import org.lineageos.updater.misc.Constants;
-import org.lineageos.updater.misc.Utils;
 import org.lineageos.updater.model.Update;
 import org.lineageos.updater.model.UpdateStatus;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 
-class ABUpdateInstaller {
+class TrebleUpdateInstaller {
 
-    private static final String TAG = "ABUpdateInstaller";
+    private static final String TAG = "TrebleUpdateInstaller";
 
-    private static final String PREF_INSTALLING_AB_ID = "installing_ab_id";
+    private static final String PREF_INSTALLING_TREBLE_ID = "installing_treble_id";
 
-    private static ABUpdateInstaller sInstance = null;
+    private static TrebleUpdateInstaller sInstance = null;
 
     private final UpdaterController mUpdaterController;
     private final Context mContext;
     private String mDownloadId;
 
-    private UpdateEngine mUpdateEngine;
     private boolean mBound;
+    private SystemFlasher flasher;
 
-    private final UpdateEngineCallback mUpdateEngineCallback = new UpdateEngineCallback() {
+    private final SystemFlasher.SystemFlasherCallback mSystemFlasherCallback = new SystemFlasher.SystemFlasherCallback() {
 
         @Override
-        public void onStatusUpdate(int status, float percent) {
+        public void onStatusUpdate(int status, int percent) {
             Update update = mUpdaterController.getActualUpdate(mDownloadId);
             if (update == null) {
                 // We read the id from a preference, the update could no longer exist
-                installationDone(status == UpdateEngine.UpdateStatusConstants.UPDATED_NEED_REBOOT);
+                installationDone(status == SystemFlasher.SUCCESS);
                 return;
             }
 
             switch (status) {
-                case UpdateEngine.UpdateStatusConstants.DOWNLOADING:
-                case UpdateEngine.UpdateStatusConstants.FINALIZING: {
+                case SystemFlasher.FLASHING:
+                case SystemFlasher.SYNCING: {
                     if (update.getStatus() != UpdateStatus.INSTALLING) {
                         update.setStatus(UpdateStatus.INSTALLING);
                         mUpdaterController.notifyUpdateChange(mDownloadId);
                     }
-                    int progress = Math.round(percent * 100);
-                    mUpdaterController.getActualUpdate(mDownloadId).setInstallProgress(progress);
-                    boolean finalizing = status == UpdateEngine.UpdateStatusConstants.FINALIZING;
-                    mUpdaterController.getActualUpdate(mDownloadId).setFinalizing(finalizing);
+                    mUpdaterController.getActualUpdate(mDownloadId).setInstallProgress(percent);
+                    boolean syncing = status == SystemFlasher.SYNCING;
+                    mUpdaterController.getActualUpdate(mDownloadId).setFinalizing(syncing);
                     mUpdaterController.notifyInstallProgress(mDownloadId);
                 }
                 break;
 
-                case UpdateEngine.UpdateStatusConstants.UPDATED_NEED_REBOOT: {
+                case SystemFlasher.FINISHED_NEEDS_REBOOT: {
                     installationDone(true);
                     update.setInstallProgress(0);
                     update.setStatus(UpdateStatus.INSTALLED);
@@ -93,7 +81,7 @@ class ABUpdateInstaller {
                 }
                 break;
 
-                case UpdateEngine.UpdateStatusConstants.IDLE: {
+                case SystemFlasher.IDLE: {
                     // The service was restarted because we thought we were installing an
                     // update, but we aren't, so clear everything.
                     installationDone(false);
@@ -103,8 +91,8 @@ class ABUpdateInstaller {
         }
 
         @Override
-        public void onPayloadApplicationComplete(int errorCode) {
-            if (errorCode != UpdateEngine.ErrorCodeConstants.SUCCESS) {
+        public void onFinished(boolean error) {
+            if (error) {
                 installationDone(false);
                 Update update = mUpdaterController.getActualUpdate(mDownloadId);
                 update.setInstallProgress(0);
@@ -116,26 +104,26 @@ class ABUpdateInstaller {
 
     static synchronized boolean isInstallingUpdate(Context context) {
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
-        return pref.getString(ABUpdateInstaller.PREF_INSTALLING_AB_ID, null) != null ||
+        return pref.getString(TrebleUpdateInstaller.PREF_INSTALLING_TREBLE_ID, null) != null ||
                 pref.getBoolean(Constants.PREF_NEEDS_REBOOT, false);
     }
 
     static synchronized boolean isInstallingUpdate(Context context, String downloadId) {
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
-        return downloadId.equals(pref.getString(ABUpdateInstaller.PREF_INSTALLING_AB_ID, null)) ||
+        return downloadId.equals(pref.getString(TrebleUpdateInstaller.PREF_INSTALLING_TREBLE_ID, null)) ||
                 pref.getBoolean(Constants.PREF_NEEDS_REBOOT, false);
     }
 
-    private ABUpdateInstaller(Context context, UpdaterController updaterController) {
+    private TrebleUpdateInstaller(Context context, UpdaterController updaterController) {
         mUpdaterController = updaterController;
         mContext = context.getApplicationContext();
-        mUpdateEngine = new UpdateEngine();
+        flasher = SystemFlasher.getInstance();
     }
 
-    static synchronized ABUpdateInstaller getInstance(Context context,
-            UpdaterController updaterController) {
+    static synchronized TrebleUpdateInstaller getInstance(Context context,
+                                                          UpdaterController updaterController) {
         if (sInstance == null) {
-            sInstance = new ABUpdateInstaller(context, updaterController);
+            sInstance = new TrebleUpdateInstaller(context, updaterController);
         }
         return sInstance;
     }
@@ -157,33 +145,8 @@ class ABUpdateInstaller {
             return false;
         }
 
-        long offset;
-        String[] headerKeyValuePairs;
-        try {
-            ZipFile zipFile = new ZipFile(file);
-            offset = Utils.getZipEntryOffset(zipFile, Constants.AB_PAYLOAD_BIN_PATH);
-            ZipEntry payloadPropEntry = zipFile.getEntry(Constants.AB_PAYLOAD_PROPERTIES_PATH);
-            try (InputStream is = zipFile.getInputStream(payloadPropEntry);
-                 InputStreamReader isr = new InputStreamReader(is);
-                 BufferedReader br = new BufferedReader(isr)) {
-                List<String> lines = new ArrayList<>();
-                for (String line; (line = br.readLine()) != null;) {
-                    lines.add(line);
-                }
-                headerKeyValuePairs = new String[lines.size()];
-                headerKeyValuePairs = lines.toArray(headerKeyValuePairs);
-            }
-            zipFile.close();
-        } catch (IOException | IllegalArgumentException e) {
-            Log.e(TAG, "Could not prepare " + file, e);
-            mUpdaterController.getActualUpdate(mDownloadId)
-                    .setStatus(UpdateStatus.INSTALLATION_FAILED);
-            mUpdaterController.notifyUpdateChange(mDownloadId);
-            return false;
-        }
-
         if (!mBound) {
-            mBound = mUpdateEngine.bind(mUpdateEngineCallback);
+            mBound = flasher.bind(mSystemFlasherCallback);
             if (!mBound) {
                 Log.e(TAG, "Could not bind");
                 mUpdaterController.getActualUpdate(downloadId)
@@ -193,14 +156,13 @@ class ABUpdateInstaller {
             }
         }
 
-        String zipFileUri = "file://" + file.getAbsolutePath();
-        //mUpdateEngine.applyPayload(zipFileUri, offset, 0, headerKeyValuePairs);
+        flasher.flash(file.getAbsolutePath());
 
         mUpdaterController.getActualUpdate(mDownloadId).setStatus(UpdateStatus.INSTALLING);
         mUpdaterController.notifyUpdateChange(mDownloadId);
 
         PreferenceManager.getDefaultSharedPreferences(mContext).edit()
-                .putString(PREF_INSTALLING_AB_ID, mDownloadId)
+                .putString(PREF_INSTALLING_TREBLE_ID, mDownloadId)
                 .apply();
 
         return true;
@@ -217,10 +179,10 @@ class ABUpdateInstaller {
         }
 
         mDownloadId = PreferenceManager.getDefaultSharedPreferences(mContext)
-                .getString(PREF_INSTALLING_AB_ID, null);
+                .getString(PREF_INSTALLING_TREBLE_ID, null);
 
         // We will get a status notification as soon as we are connected
-        mBound = mUpdateEngine.bind(mUpdateEngineCallback);
+        mBound = flasher.bind(mSystemFlasherCallback);
         if (!mBound) {
             Log.e(TAG, "Could not bind");
             return false;
@@ -232,28 +194,12 @@ class ABUpdateInstaller {
     private void installationDone(boolean needsReboot) {
         PreferenceManager.getDefaultSharedPreferences(mContext).edit()
                 .putBoolean(Constants.PREF_NEEDS_REBOOT, needsReboot)
-                .remove(PREF_INSTALLING_AB_ID)
+                .remove(PREF_INSTALLING_TREBLE_ID)
                 .apply();
     }
 
     public boolean cancel() {
-        if (!isInstallingUpdate(mContext)) {
-            Log.e(TAG, "cancel: Not installing any update");
-            return false;
-        }
-
-        if (!mBound) {
-            Log.e(TAG, "Not connected to update engine");
-            return false;
-        }
-
-        mUpdateEngine.cancel();
-        installationDone(false);
-
-        mUpdaterController.getActualUpdate(mDownloadId)
-                .setStatus(UpdateStatus.INSTALLATION_CANCELLED);
-        mUpdaterController.notifyUpdateChange(mDownloadId);
-
-        return true;
+        // You __really__ don't want to cancel a direct flash
+        return false;
     }
 }

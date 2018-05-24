@@ -168,6 +168,11 @@ public class UpdaterService extends Service {
                 ABUpdateInstaller installer = ABUpdateInstaller.getInstance(this,
                         mUpdaterController);
                 installer.reconnect();
+            } else if (TrebleUpdateInstaller.isInstallingUpdate(this)) {
+                // The service is being restarted.
+                TrebleUpdateInstaller installer = TrebleUpdateInstaller.getInstance(this,
+                        mUpdaterController);
+                installer.reconnect();
             }
         } else if (ACTION_DOWNLOAD_CONTROL.equals(intent.getAction())) {
             String downloadId = intent.getStringExtra(EXTRA_DOWNLOAD_ID);
@@ -186,7 +191,10 @@ public class UpdaterService extends Service {
                 throw new IllegalArgumentException(update.getDownloadId() + " is not verified");
             }
             try {
-                if (Utils.isABUpdate(update.getFile())) {
+                if (Utils.isTrebleUpdate(update.getFile())){
+                    TrebleUpdateInstaller installer = TrebleUpdateInstaller.getInstance(this, mUpdaterController);
+                    installer.install(downloadId);
+                } else if (Utils.isABUpdate(update.getFile())) {
                     ABUpdateInstaller installer = ABUpdateInstaller.getInstance(this,
                             mUpdaterController);
                     installer.install(downloadId);
@@ -209,9 +217,14 @@ public class UpdaterService extends Service {
                         mUpdaterController);
                 installer.reconnect();
                 installer.cancel();
+            } else if (TrebleUpdateInstaller.isInstallingUpdate(this)) {
+                TrebleUpdateInstaller installer = TrebleUpdateInstaller.getInstance(this,
+                        mUpdaterController);
+                installer.reconnect();
+                installer.cancel();
             }
         }
-        return ABUpdateInstaller.isInstallingUpdate(this) ? START_STICKY : START_NOT_STICKY;
+        return (ABUpdateInstaller.isInstallingUpdate(this) || TrebleUpdateInstaller.isInstallingUpdate(this)) ? START_STICKY : START_NOT_STICKY;
     }
 
     public Controller getUpdaterController() {

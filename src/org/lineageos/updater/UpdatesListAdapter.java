@@ -146,11 +146,18 @@ public class UpdatesListAdapter extends RecyclerView.Adapter<UpdatesListAdapter.
             viewHolder.mProgressBar.setProgress(update.getProgress());
         } else if (mUpdaterController.isInstallingUpdate(downloadId)) {
             setButtonAction(viewHolder.mAction, Action.CANCEL_INSTALLATION, downloadId, true);
-            boolean notAB = !mUpdaterController.isInstallingABUpdate();
-            viewHolder.mProgressText.setText(notAB ? R.string.dialog_prepare_zip_message :
-                    update.getFinalizing() ?
-                            R.string.finalizing_package :
-                            R.string.preparing_ota_first_boot);
+            boolean isAB = mUpdaterController.isInstallingABUpdate();
+            boolean isTreble = mUpdaterController.isInstallingTrebleUpdate();
+
+            if(isAB) {
+                viewHolder.mProgressText.setText(update.getFinalizing() ?
+                                R.string.finalizing_package :
+                                R.string.preparing_ota_first_boot);
+            } else if (isTreble) {
+                viewHolder.mProgressText.setText(R.string.flashing_system);
+            } else {
+                viewHolder.mProgressText.setText(R.string.dialog_prepare_zip_message);
+            }
             viewHolder.mProgressBar.setIndeterminate(false);
             viewHolder.mProgressBar.setProgress(update.getInstallProgress());
         } else if (mUpdaterController.isVerifyingUpdate(downloadId)) {
